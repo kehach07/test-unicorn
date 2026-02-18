@@ -1,43 +1,59 @@
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import re
 import logging
 from datetime import datetime
-# from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 
+# ==============================
+# App Initialization
+# ==============================
 app = FastAPI(title="SecureAI Prompt Injection Validator")
 
-# Enable CORS
+# Enable CORS (Required for Render / external testers)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # allow all (for testing)
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app = FastAPI(title="SecureAI Prompt Injection Validator")
 
-# -------- Logging Setup --------
+# ==============================
+# Logging Setup
+# ==============================
 logging.basicConfig(
     filename="security.log",
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
-# -------- Request Model --------
+# ==============================
+# Request Model
+# ==============================
 class SecurityRequest(BaseModel):
     userId: str
     input: str
     category: str
 
 
-# -------- Injection Patterns --------
+# ==============================
+# Root Health Endpoint
+# ==============================
+@app.get("/")
+def root():
+    return {"status": "SecureAI Validator is running"}
+
+
+# ==============================
+# Prompt Injection Patterns
+# ==============================
 OVERRIDE_PATTERNS = [
     r"ignore (all|previous|system) instructions",
     r"override (system|rules)",
+    r"disregard previous instructions",
     r"you are now",
-    r"act as (admin|developer|system)",
+    r"act as (admin|developer|system|root)",
 ]
 
 SYSTEM_EXTRACTION_PATTERNS = [
@@ -45,6 +61,7 @@ SYSTEM_EXTRACTION_PATTERNS = [
     r"reveal system instructions",
     r"what is your system message",
     r"print hidden prompt",
+    r"expose hidden instructions",
 ]
 
 ROLE_MANIPULATION_PATTERNS = [
@@ -52,6 +69,7 @@ ROLE_MANIPULATION_PATTERNS = [
     r"as a developer",
     r"i am the system",
     r"pretend you are root",
+    r"grant me full access",
 ]
 
 SUSPICIOUS_PATTERNS = (
@@ -61,14 +79,14 @@ SUSPICIOUS_PATTERNS = (
 )
 
 
-# -------- Helper Functions --------
+# ==============================
+# Helper Functions
+# ==============================
 def detect_prompt_injection(text: str):
     text_lower = text.lower()
-
     for pattern in SUSPICIOUS_PATTERNS:
         if re.search(pattern, text_lower):
             return True, pattern
-
     return False, None
 
 
@@ -84,15 +102,17 @@ def log_event(user_id, input_text, blocked, reason):
         "userId": user_id,
         "blocked": blocked,
         "reason": reason,
-        "input": input_text[:200]
+        "input_sample": input_text[:200]
     })
 
 
-# -------- API Endpoint --------
+# ==============================
+# Validation Endpoint
+# ==============================
 @app.post("/validate")
 async def validate_security(request: SecurityRequest):
 
-    # Validate category
+    # Category validation
     if request.category != "Prompt Injection":
         raise HTTPException(
             status_code=400,
@@ -100,11 +120,12 @@ async def validate_security(request: SecurityRequest):
         )
 
     try:
+        # Detect injection
         is_blocked, pattern = detect_prompt_injection(request.input)
 
         if is_blocked:
             reason = "Prompt injection attempt detected"
-            confidence = 0.95
+            confidence = 0.96
 
             log_event(request.userId, request.input, True, reason)
 
@@ -117,7 +138,7 @@ async def validate_security(request: SecurityRequest):
 
         # Legitimate input
         sanitized = sanitize_output(request.input)
-        confidence = 0.90
+        confidence = 0.92
 
         log_event(request.userId, request.input, False, "Passed validation")
 
@@ -129,7 +150,7 @@ async def validate_security(request: SecurityRequest):
         }
 
     except Exception:
-        # Do NOT leak system info
+        # Do NOT expose system details
         raise HTTPException(
             status_code=400,
             detail="Validation error"
