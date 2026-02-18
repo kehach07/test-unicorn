@@ -3,7 +3,19 @@ from pydantic import BaseModel
 import re
 import logging
 from datetime import datetime
+# from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
+app = FastAPI(title="SecureAI Prompt Injection Validator")
+
+# Enable CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],   # allow all (for testing)
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app = FastAPI(title="SecureAI Prompt Injection Validator")
 
 # -------- Logging Setup --------
