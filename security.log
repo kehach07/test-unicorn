@@ -1,0 +1,2 @@
+2026-02-18 23:07:57,730 - INFO - {'timestamp': '2026-02-18 17:37:57.729928', 'userId': 'test-user', 'blocked': False, 'reason': 'Passed validation', 'input': 'Explain quantum computing'}
+2026-02-18 23:07:59,606 - INFO - {'timestamp': '2026-02-18 17:37:59.606040', 'userId': 'test-user', 'blocked': False, 'reason': 'Passed validation', 'input': 'Explain quantum computing'}
